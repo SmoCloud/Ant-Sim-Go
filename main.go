@@ -171,57 +171,56 @@ func (a *Ant) Move(cells [][]*Cell, d time.Duration) {
 		p := make([]Pair, 0)
 		pL := make([]float32, 0)
 		highPair := Pair{a.X, a.Y}
-		highest := a.PheromoneStrength
-		if !cells[highPair.X][highPair.Y].Nest && a.PheromoneType {
+		lowest := time.Since(cells[a.X][a.Y].PheromoneTime)
+		if !cells[highPair.X][highPair.Y].Nest && a.PheromoneType && cells[highPair.X][highPair.Y].PheromoneType == "Home" {
 			log.Println("Inside of if.")
+			cells[highPair.X][highPair.Y].PheromoneType = "Food"
 			if cells[highPair.X][(highPair.Y + Cols - 1) % Cols].IsPheromone {
 				p = append(p, Pair{highPair.X, (highPair.Y + Cols - 1) % Cols})
 				pL = append(pL, cells[highPair.X][(highPair.Y + Cols - 1) % Cols].PheromoneLevel)
-				cells[highPair.X][(highPair.Y + Cols - 1) % Cols].PheromoneType = "Food"
+				// cells[highPair.X][(highPair.Y + Cols - 1) % Cols].PheromoneType = "Food"
 			}
 			if cells[(highPair.X + Rows - 1) % Rows][highPair.Y].IsPheromone {
 				p = append(p, Pair{(highPair.X + Rows - 1) % Rows, highPair.Y})
 				pL = append(pL, cells[(highPair.X + Rows - 1) % Rows][highPair.Y].PheromoneLevel)
-				cells[(highPair.X + Rows - 1) % Rows][highPair.Y].PheromoneType = "Food"
+				// cells[(highPair.X + Rows - 1) % Rows][highPair.Y].PheromoneType = "Food"
 			}
 			if cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols - 1) % Cols].IsPheromone {
 				p = append(p, Pair{(highPair.X + Rows - 1) % Rows, (highPair.Y + Cols - 1) % Cols})
 				pL = append(pL, cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols - 1) % Cols].PheromoneLevel)
-				cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols - 1) % Cols].PheromoneType = "Food"
+				// cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols - 1) % Cols].PheromoneType = "Food"
 			}
 			if cells[highPair.X][(highPair.Y + Cols + 1) % Cols].IsPheromone {
 				p = append(p, Pair{highPair.X, (highPair.Y + Cols + 1) % Cols})
 				pL = append(pL, cells[highPair.X][(highPair.Y + Cols + 1) % Cols].PheromoneLevel)
-				cells[highPair.X][(highPair.Y + Cols - 1) % Cols].PheromoneType = "Food"
+				// cells[highPair.X][(highPair.Y + Cols - 1) % Cols].PheromoneType = "Food"
 			}
 			if cells[(highPair.X + Rows + 1) % Rows][highPair.Y].IsPheromone {
 				p = append(p, Pair{(highPair.X + Rows + 1) % Rows, highPair.Y})
 				pL = append(pL, cells[(highPair.X + Rows + 1) % Rows][highPair.Y].PheromoneLevel)
-				cells[(highPair.X + Rows + 1) % Rows][highPair.Y].PheromoneType = "Food"
+				// cells[(highPair.X + Rows + 1) % Rows][highPair.Y].PheromoneType = "Food"
 			}
 			if cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols - 1) % Cols].IsPheromone {
 				p = append(p, Pair{(highPair.X + Rows + 1) % Rows, (highPair.Y + Cols - 1) % Cols})
 				pL = append(pL, cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols - 1) % Cols].PheromoneLevel)
-				cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols - 1) % Cols].PheromoneType = "Food"
+				// cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols - 1) % Cols].PheromoneType = "Food"
 			}
 			if cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols + 1) % Cols].IsPheromone {
 				p = append(p, Pair{(highPair.X + Rows - 1) % Rows, (highPair.Y + Cols + 1) % Cols})
 				pL = append(pL, cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols + 1) % Cols].PheromoneLevel)
-				cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols + 1) % Cols].PheromoneType = "Food"
+				// cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols + 1) % Cols].PheromoneType = "Food"
 			}
 			if cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols + 1) % Cols].IsPheromone {
 				p = append(p, Pair{(highPair.X + Rows + 1) % Rows, (highPair.Y + Cols + 1) % Cols})
 				pL = append(pL, cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols + 1) % Cols].PheromoneLevel)
-				cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols + 1) % Cols].PheromoneType = "Food"
+				// cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols + 1) % Cols].PheromoneType = "Food"
 			}
-			for i, l := range(pL) {
-				s := highest - l
-				if s > 0 {
-					// log.Println(highPair)
-					highest = l
+			for i, l := range(p) {
+				least := time.Since(cells[l.X][l.Y].PheromoneTime)
+				if least > lowest {
+					log.Println(highPair)
+					lowest = least
 					highPair = p[i]
-				} else if s <= 0 {
-					continue
 				}
 			}	// found by searching how to push an element onto the front of a slice
 			clear(p)
@@ -472,7 +471,7 @@ func newCell(x, y int) *Cell {
 
 	return &Cell{
 		Drawable:       makeVao(points),
-		PheromoneType:  "None",
+		PheromoneType:  "Home",
 		Nest:           false,
 		Food:           false,
 		IsAnt:          false,
