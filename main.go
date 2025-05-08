@@ -13,7 +13,6 @@ import (
 
 	"github.com/go-gl/gl/v4.6-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
-	"slices"
 )
 
 type Colours struct {
@@ -119,7 +118,6 @@ func (a *Ant) Move(cells [][]*Cell, d time.Duration) {
 	*cells[a.X][a.Y].PheromoneFade[1].colorList[1] = 0.3
 	*cells[a.X][a.Y].PheromoneFade[1].colorList[2] = 0.9
 	cells[a.X][a.Y].PheromoneLevel = a.PheromoneStrength
-	a.PheromoneTrail = append(a.PheromoneTrail, Pair{a.X, a.Y})
 	if cells[a.X][a.Y].Food {
 		a.HasFood = true
 		a.Travel.X = 0
@@ -162,25 +160,20 @@ func (a *Ant) Move(cells [][]*Cell, d time.Duration) {
 		cells[a.X][a.Y].PheromoneDecay = Gamma
 		a.PheromoneStrength = Alpha
 		a.PheromoneType = false
+		a.X = (a.X + a.Travel.X + Rows) % Rows
+		a.Y = (a.Y + a.Travel.Y + Cols) % Cols
+		cells[a.X][a.Y].IsAnt = true
 	} else {
-		cells[a.X][a.Y].PheromoneType = "Food"
 		cells[a.X][a.Y].PheromoneDecay = Gamma / 3.0
 		a.PheromoneStrength = Beta
 		a.PheromoneType = true
-	}
-	if !a.HasFood {
-		a.X = (a.X + a.Travel.X + Rows) % Rows
-		a.Y = (a.Y + a.Travel.Y + Cols) % Cols
-	} 
-	if !a.HomeTrail {
-		a.X = (a.X + a.Travel.X + Rows) % Rows
-		a.Y = (a.Y + a.Travel.Y + Cols) % Cols
-		var p []Pair
-		var pL []float32
+		// a.PheromoneTrail = append(a.PheromoneTrail, Pair{a.X, a.Y})
+		p := make([]Pair, 0)
+		pL := make([]float32, 0)
 		highPair := Pair{a.X, a.Y}
-		highest := float32(0.0)
-		a.HomeTrail = true
-		for !cells[highPair.X][highPair.Y].Nest && cells[highPair.X][highPair.Y].PheromoneType == "Home" {
+		highest := a.PheromoneStrength
+		if !cells[highPair.X][highPair.Y].Nest && a.PheromoneType {
+			log.Println("Inside of if.")
 			if cells[highPair.X][(highPair.Y + Cols - 1) % Cols].IsPheromone {
 				p = append(p, Pair{highPair.X, (highPair.Y + Cols - 1) % Cols})
 				pL = append(pL, cells[highPair.X][(highPair.Y + Cols - 1) % Cols].PheromoneLevel)
@@ -222,26 +215,24 @@ func (a *Ant) Move(cells [][]*Cell, d time.Duration) {
 				cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols + 1) % Cols].PheromoneType = "Food"
 			}
 			for i, l := range(pL) {
-				if l >= highest {
-					log.Println(highest)
+				s := highest - l
+				if s > 0 {
+					// log.Println(highPair)
 					highest = l
 					highPair = p[i]
-					break
+				} else if s <= 0 {
+					continue
 				}
-			}
-			a.PheromoneTrail = append(a.PheromoneTrail, highPair)	// found by searching how to push an element onto the front of a slice
+			}	// found by searching how to push an element onto the front of a slice
 			clear(p)
 			clear(pL)
+			cells[a.X][a.Y].PheromoneTime = time.Now()
 		}
+		log.Println(a.X, a.Y, highPair)
+		a.X = highPair.X
+		a.Y = highPair.Y
+		cells[a.X][a.Y].IsAnt = true
 	} 
-	if a.HasFood {
-		pair := a.PheromoneTrail[0]
-		// log.Println(pair)
-		a.PheromoneTrail = slices.Delete(a.PheromoneTrail, 0, 1)
-		a.X = pair.X
-		a.Y = pair.Y
-	}
-	cells[a.X][a.Y].IsAnt = true
 }
 
 // a combination of the assignment instructions and the OpenGL code from Conway's to determine if the cell should be drawable or not
@@ -293,6 +284,7 @@ func SpawnAnts(cells [][]*Cell, spot []int) []*Ant {
 	ants[0] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
+		PheromoneTrail:    make([]Pair, 0),
 		X:                 spot[0],
 		Y:                 (spot[1] + Cols - 2) % Cols,
 		HomeTrail:		   false,
@@ -302,6 +294,7 @@ func SpawnAnts(cells [][]*Cell, spot []int) []*Ant {
 	ants[1] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
+		PheromoneTrail:    make([]Pair, 0),
 		X:                 spot[0],
 		Y:                 (spot[1] + Cols + 2) % Cols,
 		HomeTrail:		   false,
@@ -311,6 +304,7 @@ func SpawnAnts(cells [][]*Cell, spot []int) []*Ant {
 	ants[2] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
+		PheromoneTrail:    make([]Pair, 0),
 		X:                 (spot[0] + Rows - 2) % Cols,
 		Y:                 spot[1],
 		HomeTrail:		   false,
@@ -320,6 +314,7 @@ func SpawnAnts(cells [][]*Cell, spot []int) []*Ant {
 	ants[3] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
+		PheromoneTrail:    make([]Pair, 0),
 		X:                 (spot[0] + Rows + 2) % Rows,
 		Y:                 spot[1],
 		HomeTrail:		   false,
@@ -329,6 +324,7 @@ func SpawnAnts(cells [][]*Cell, spot []int) []*Ant {
 	ants[4] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
+		PheromoneTrail:    make([]Pair, 0),
 		X:                 (spot[0] + Rows - 1) % Rows,
 		Y:                 (spot[1] + Cols - 2) % Cols,
 		HomeTrail:		   false,
@@ -338,6 +334,7 @@ func SpawnAnts(cells [][]*Cell, spot []int) []*Ant {
 	ants[5] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
+		PheromoneTrail:    make([]Pair, 0),
 		X:                 (spot[0] + Rows + 1) % Rows,
 		Y:                 (spot[1] + Cols - 2) % Cols,
 		HomeTrail:		   false,
@@ -347,6 +344,7 @@ func SpawnAnts(cells [][]*Cell, spot []int) []*Ant {
 	ants[6] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
+		PheromoneTrail:    make([]Pair, 0),
 		X:                 (spot[0] + Rows - 2) % Rows,
 		Y:                 (spot[1] + Cols + 1) % Cols,
 		HomeTrail:		   false,
@@ -356,6 +354,7 @@ func SpawnAnts(cells [][]*Cell, spot []int) []*Ant {
 	ants[7] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
+		PheromoneTrail:    make([]Pair, 0),
 		X:                 (spot[0] + Rows + 2) % Rows,
 		Y:                 (spot[1] + Cols + 1) % Cols,
 		HomeTrail:		   false,
@@ -365,6 +364,7 @@ func SpawnAnts(cells [][]*Cell, spot []int) []*Ant {
 	ants[8] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
+		PheromoneTrail:    make([]Pair, 0),
 		X:                 (spot[0] + Rows - 2) % Rows,
 		Y:                 (spot[1] + Cols - 2) % Cols,
 		HomeTrail:		   false,
@@ -374,6 +374,7 @@ func SpawnAnts(cells [][]*Cell, spot []int) []*Ant {
 	ants[9] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
+		PheromoneTrail:    make([]Pair, 0),
 		X:                 (spot[0] + Rows + 2) % Rows,
 		Y:                 (spot[1] + Cols - 2) % Cols,
 		HomeTrail:		   false,
@@ -383,6 +384,7 @@ func SpawnAnts(cells [][]*Cell, spot []int) []*Ant {
 	ants[10] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
+		PheromoneTrail:    make([]Pair, 0),
 		X:                 (spot[0] + Rows - 2) % Rows,
 		Y:                 (spot[1] + Cols + 2) % Cols,
 		HomeTrail:		   false,
@@ -392,6 +394,7 @@ func SpawnAnts(cells [][]*Cell, spot []int) []*Ant {
 	ants[11] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
+		PheromoneTrail:    make([]Pair, 0),
 		X:                 (spot[0] + Rows + 2) % Rows,
 		Y:                 (spot[1] + Cols + 2) % Cols,
 		HomeTrail:		   false,
@@ -577,7 +580,9 @@ func draw(cells [][]*Cell, window *glfw.Window, program uint32, d time.Duration)
 	for x := range cells {
 		for _, c := range cells[x] {
 			// get the shader's uniform value
-			vertexColorLocation := gl.GetUniformLocation(program, gl.Str("sprite_colour\x00"))
+			vertexColorString, free := gl.Strs("sprite_colour\x00")
+			defer free()
+			vertexColorLocation := gl.GetUniformLocation(program, *vertexColorString)
 			if c.Nest {
 				gl.Uniform4f(vertexColorLocation, NestColours[0], NestColours[1], NestColours[2], 1.0) // purple-ish for the nest
 			}
