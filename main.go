@@ -163,8 +163,8 @@ func (a *Ant) Move(cells [][]*Cell, d time.Duration) {
 		a.PheromoneStrength = Alpha
 		a.PheromoneType = false
 	} else {
-		cells[(a.X + a.Travel.X + Rows) % Rows][(a.Y + a.Travel.Y + Cols) % Cols].PheromoneType = "Food"
-		cells[(a.X + a.Travel.X + Rows) % Rows][(a.Y + a.Travel.Y + Cols) % Cols].PheromoneDecay = Gamma / 3.0
+		cells[a.X][a.Y].PheromoneType = "Food"
+		cells[a.X][a.Y].PheromoneDecay = Gamma / 3.0
 		a.PheromoneStrength = Beta
 		a.PheromoneType = true
 	}
@@ -173,6 +173,8 @@ func (a *Ant) Move(cells [][]*Cell, d time.Duration) {
 		a.Y = (a.Y + a.Travel.Y + Cols) % Cols
 	} 
 	if !a.HomeTrail {
+		a.X = (a.X + a.Travel.X + Rows) % Rows
+		a.Y = (a.Y + a.Travel.Y + Cols) % Cols
 		var p []Pair
 		var pL []float32
 		highPair := Pair{a.X, a.Y}
@@ -181,59 +183,60 @@ func (a *Ant) Move(cells [][]*Cell, d time.Duration) {
 		for !cells[highPair.X][highPair.Y].Nest && cells[highPair.X][highPair.Y].PheromoneType == "Home" {
 			if cells[highPair.X][(highPair.Y + Cols - 1) % Cols].IsPheromone {
 				p = append(p, Pair{highPair.X, (highPair.Y + Cols - 1) % Cols})
-				pL = append(pL, cells[highPair.X][(highPair.Y + Cols - 1) % Cols].PheromoneDecay)
+				pL = append(pL, cells[highPair.X][(highPair.Y + Cols - 1) % Cols].PheromoneLevel)
 				cells[highPair.X][(highPair.Y + Cols - 1) % Cols].PheromoneType = "Food"
 			}
 			if cells[(highPair.X + Rows - 1) % Rows][highPair.Y].IsPheromone {
 				p = append(p, Pair{(highPair.X + Rows - 1) % Rows, highPair.Y})
-				pL = append(pL, cells[(highPair.X + Rows - 1) % Rows][highPair.Y].PheromoneDecay)
+				pL = append(pL, cells[(highPair.X + Rows - 1) % Rows][highPair.Y].PheromoneLevel)
 				cells[(highPair.X + Rows - 1) % Rows][highPair.Y].PheromoneType = "Food"
 			}
 			if cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols - 1) % Cols].IsPheromone {
 				p = append(p, Pair{(highPair.X + Rows - 1) % Rows, (highPair.Y + Cols - 1) % Cols})
-				pL = append(pL, cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols - 1) % Cols].PheromoneDecay)
+				pL = append(pL, cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols - 1) % Cols].PheromoneLevel)
 				cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols - 1) % Cols].PheromoneType = "Food"
 			}
 			if cells[highPair.X][(highPair.Y + Cols + 1) % Cols].IsPheromone {
 				p = append(p, Pair{highPair.X, (highPair.Y + Cols + 1) % Cols})
-				pL = append(pL, cells[highPair.X][(highPair.Y + Cols + 1) % Cols].PheromoneDecay)
+				pL = append(pL, cells[highPair.X][(highPair.Y + Cols + 1) % Cols].PheromoneLevel)
 				cells[highPair.X][(highPair.Y + Cols - 1) % Cols].PheromoneType = "Food"
 			}
 			if cells[(highPair.X + Rows + 1) % Rows][highPair.Y].IsPheromone {
 				p = append(p, Pair{(highPair.X + Rows + 1) % Rows, highPair.Y})
-				pL = append(pL, cells[(highPair.X + Rows + 1) % Rows][highPair.Y].PheromoneDecay)
+				pL = append(pL, cells[(highPair.X + Rows + 1) % Rows][highPair.Y].PheromoneLevel)
 				cells[(highPair.X + Rows + 1) % Rows][highPair.Y].PheromoneType = "Food"
 			}
 			if cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols - 1) % Cols].IsPheromone {
 				p = append(p, Pair{(highPair.X + Rows + 1) % Rows, (highPair.Y + Cols - 1) % Cols})
-				pL = append(pL, cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols - 1) % Cols].PheromoneDecay)
+				pL = append(pL, cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols - 1) % Cols].PheromoneLevel)
 				cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols - 1) % Cols].PheromoneType = "Food"
 			}
 			if cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols + 1) % Cols].IsPheromone {
 				p = append(p, Pair{(highPair.X + Rows - 1) % Rows, (highPair.Y + Cols + 1) % Cols})
-				pL = append(pL, cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols + 1) % Cols].PheromoneDecay)
+				pL = append(pL, cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols + 1) % Cols].PheromoneLevel)
 				cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols + 1) % Cols].PheromoneType = "Food"
 			}
 			if cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols + 1) % Cols].IsPheromone {
 				p = append(p, Pair{(highPair.X + Rows + 1) % Rows, (highPair.Y + Cols + 1) % Cols})
-				pL = append(pL, cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols + 1) % Cols].PheromoneDecay)
+				pL = append(pL, cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols + 1) % Cols].PheromoneLevel)
 				cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols + 1) % Cols].PheromoneType = "Food"
 			}
 			for i, l := range(pL) {
 				if l >= highest {
+					log.Println(highest)
 					highest = l
 					highPair = p[i]
 					break
 				}
 			}
-			a.PheromoneTrail = append([]Pair{highPair}, a.PheromoneTrail...)	// found by searching how to push an element onto the front of a slice
+			a.PheromoneTrail = append(a.PheromoneTrail, highPair)	// found by searching how to push an element onto the front of a slice
 			clear(p)
 			clear(pL)
 		}
 	} 
 	if a.HasFood {
 		pair := a.PheromoneTrail[0]
-		log.Println(pair)
+		// log.Println(pair)
 		a.PheromoneTrail = slices.Delete(a.PheromoneTrail, 0, 1)
 		a.X = pair.X
 		a.Y = pair.Y
@@ -509,7 +512,7 @@ func main() {
 		decayTime := time.Since(decay)
 
 		for _, a := range ants { // traverse through list of ants
-			a.Move(cells, decayTime) // move the ants in a random direction and update their position in the cells
+			go a.Move(cells, decayTime) // move the ants in a random direction and update their position in the cells
 		}
 
 		draw(cells, window, program, t) // draw the drawable cells
@@ -526,7 +529,7 @@ func initGlfw() *glfw.Window {
 
 	glfw.WindowHint(glfw.Resizable, glfw.False)
 	glfw.WindowHint(glfw.ContextVersionMajor, 4)
-	glfw.WindowHint(glfw.ContextVersionMinor, 1)
+	glfw.WindowHint(glfw.ContextVersionMinor, 6)
 	glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
 	glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
 
@@ -581,11 +584,11 @@ func draw(cells [][]*Cell, window *glfw.Window, program uint32, d time.Duration)
 			if c.Food {
 				gl.Uniform4f(vertexColorLocation, FoodColours[0], FoodColours[1], FoodColours[2], 1.0) // green for the food
 			}
-			if c.IsPheromone && c.PheromoneType == "Home" {
+			if c.IsPheromone && !(c.Nest || c.Food || c.IsAnt) && c.PheromoneType == "Home" {
 				decayPheromone(d, c, 0)
 				// log.Println(*PheromoneColours[0])
 				gl.Uniform4f(vertexColorLocation, *c.PheromoneFade[0].colorList[0], *c.PheromoneFade[0].colorList[1], *c.PheromoneFade[0].colorList[2], 1.0)
-			} else if c.IsPheromone && c.PheromoneType == "Food" {
+			} else if c.IsPheromone && !(c.Nest || c.Food || c.IsAnt) && c.PheromoneType == "Food" {
 				decayPheromone(d, c, 1)
 				// log.Println(*PheromoneColours[0])
 				gl.Uniform4f(vertexColorLocation, *c.PheromoneFade[1].colorList[0], *c.PheromoneFade[1].colorList[1], *c.PheromoneFade[1].colorList[2], 1.0)
