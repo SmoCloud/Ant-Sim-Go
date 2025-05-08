@@ -99,8 +99,53 @@ func (a *Ant) Move(cells [][]*Cell, d time.Duration, wg *sync.WaitGroup) {
 			a.Travel.X = rand.Intn(3) - 1
 			a.Travel.Y = rand.Intn(2) * (-1)
 		}
+	} else {
+		prob := rand.Float64()
+		a.Direction = func() string {
+			if prob <= 0.2 {
+				return "West"
+			} else if prob > 0.2 && prob <= 0.4 {
+				return "East"
+			} else if prob > 0.4 && prob <= 0.6 {
+				return "North"
+			} else if prob > 0.6 && prob <= 0.8 {
+				return "South"
+			} else {
+				return a.Direction
+			}
+		}()	// further randomizes their direction of travel with 20% probability of a direction change or not
 	}
-
+	// should prevent ants from colliding
+	for cells[(a.X + a.Travel.X + Rows) % Rows][(a.Y + a.Travel.Y + Cols) % Cols].IsAnt {
+		if a.Direction == "West" {
+			a.Travel.X = rand.Intn(2) * (-1)
+			if !cells[(a.X + a.Travel.X + Rows) % Rows][(a.Y + a.Travel.Y + Cols) % Cols].IsAnt {
+				break
+			}
+			a.Travel.Y = rand.Intn(3) - 1
+		} else if a.Direction == "East" {
+			a.Travel.X = rand.Intn(2)
+			if !cells[(a.X + a.Travel.X + Rows) % Rows][(a.Y + a.Travel.Y + Cols) % Cols].IsAnt {
+				break
+			}
+			a.Travel.Y = rand.Intn(3) - 1
+		} else if a.Direction == "North" {
+			a.Travel.Y = rand.Intn(2)
+			if !cells[(a.X + a.Travel.X + Rows) % Rows][(a.Y + a.Travel.Y + Cols) % Cols].IsAnt {
+				break
+			}
+			a.Travel.X = rand.Intn(3) - 1
+		} else if a.Direction == "South" {
+			a.Travel.X = rand.Intn(3) - 1
+			if !cells[(a.X + a.Travel.X + Rows) % Rows][(a.Y + a.Travel.Y + Cols) % Cols].IsAnt {
+				break
+			}
+			a.Travel.Y = rand.Intn(2) * (-1)
+		}
+		if !cells[(a.X + a.Travel.X + Rows) % Rows][(a.Y + a.Travel.Y + Cols) % Cols].IsAnt {
+			break
+		}
+	}
 	cells[a.X][a.Y].IsAnt = false
 	cells[a.X][a.Y].IsPheromone = true
 	cells[a.X][a.Y].PheromoneTime = time.Now()
@@ -216,9 +261,10 @@ func (a *Ant) Move(cells [][]*Cell, d time.Duration, wg *sync.WaitGroup) {
 				// cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols + 1) % Cols].PheromoneType = "Food"
 			}
 			for i, l := range(pL) {
-				if l > highest && cells[p[i].X][p[i].Y].PheromoneType == "Home" {
+				if l > highest {
 					log.Println(highPair)
 					highest = l
+
 					highPair = p[i]
 				}
 			}	// found by searching how to push an element onto the front of a slice
@@ -227,7 +273,7 @@ func (a *Ant) Move(cells [][]*Cell, d time.Duration, wg *sync.WaitGroup) {
 			cells[highPair.X][highPair.Y].PheromoneLevel = a.PheromoneStrength
 			cells[highPair.X][highPair.Y].PheromoneTime = time.Now()
 		}
-		log.Println(a.X, a.Y, highPair)
+		// log.Println(a.X, a.Y, highPair)
 		a.X = highPair.X
 		a.Y = highPair.Y
 		cells[a.X][a.Y].IsAnt = true
