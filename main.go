@@ -11,8 +11,9 @@ import (
 	// "sync"
 	"time"
 
-	"github.com/go-gl/gl/v4.1-core/gl"
-	"github.com/go-gl/glfw/v3.1/glfw"
+	"github.com/go-gl/gl/v4.6-core/gl"
+	"github.com/go-gl/glfw/v3.3/glfw"
+	"slices"
 )
 
 type Colours struct {
@@ -72,38 +73,89 @@ type Pair struct { // copilot advised using a struct to create a pair since Go d
 }
 
 type Ant struct { // I found some things online for how to create an Ant, but ultimately decided to just make it my own way
-	X, Y              int
-	PheromoneType     bool
-	PheromoneStrength float32
-	PheromoneTrail    []Pair
-	HasFood           bool
+	X, Y              	int
+	PheromoneType     	bool
+	PheromoneStrength 	float32
+	PheromoneTrail    	[]Pair
+	HasFood, HomeTrail	bool
+	Direction			string
+	Travel			  	Pair
 }
 
 // I got a simple movement function from copilot and added the logic to track the pheromone trail and update whether the cell
 // contains an ant
 func (a *Ant) Move(cells [][]*Cell, d time.Duration) {
 	// Move ant in a random direction
-	dX := rand.Intn(3) - 1
-	dY := rand.Intn(3) - 1
-	for _, p := range a.PheromoneTrail {
-		for a.X+dX == p.X {
-			dX = rand.Intn(3) - 1
-		}
-		for a.Y+dY == p.Y {
-			dY = rand.Intn(3) - 1
-		}
-		if ((a.X+dX-p.X) < -1 || (a.X+dX-p.X) > 1) && ((a.Y+dY-p.Y) < -1 || (a.Y+dY-p.Y) > 1) {
-			break
+	if (d % time.Duration(30) == 0) {
+		if a.Direction == "West" {
+			a.Travel.X = rand.Intn(2) * (-1)
+			a.Travel.Y = rand.Intn(3) - 1
+		} else if a.Direction == "East" {
+			a.Travel.X = rand.Intn(2)
+			a.Travel.Y = rand.Intn(3) - 1
+		} else if a.Direction == "North" {
+			a.Travel.X = rand.Intn(3) - 1
+			a.Travel.Y = rand.Intn(2)
+		} else if a.Direction == "South" {
+			a.Travel.X = rand.Intn(3) - 1
+			a.Travel.Y = rand.Intn(2) * (-1)
 		}
 	}
+
 	cells[a.X][a.Y].IsAnt = false
 	cells[a.X][a.Y].IsPheromone = true
 	cells[a.X][a.Y].PheromoneTime = time.Now()
-	cells[a.X][a.Y].PheromoneFade = Colours{}
-	cells[a.X][a.Y].PheromoneFade.colorList = make([]*float32, 3)
-	for i := range(cells[a.X][a.Y].PheromoneFade.colorList) {
-		cells[a.X][a.Y].PheromoneFade.colorList[i] = new(float32)
-		*cells[a.X][a.Y].PheromoneFade.colorList[i] = 1.0
+	cells[a.X][a.Y].PheromoneFade = make([]Colours, 2)
+	cells[a.X][a.Y].PheromoneFade = append(cells[a.X][a.Y].PheromoneFade, Colours{})
+	cells[a.X][a.Y].PheromoneFade = append(cells[a.X][a.Y].PheromoneFade, Colours{})
+	cells[a.X][a.Y].PheromoneFade[0].colorList = make([]*float32, 3)
+	cells[a.X][a.Y].PheromoneFade[1].colorList = make([]*float32, 3)
+	for i := range(cells[a.X][a.Y].PheromoneFade[0].colorList) {
+		cells[a.X][a.Y].PheromoneFade[0].colorList[i] = new(float32)
+		*cells[a.X][a.Y].PheromoneFade[0].colorList[i] = 1.0
+		cells[a.X][a.Y].PheromoneFade[1].colorList[i] = new(float32)
+	}
+	*cells[a.X][a.Y].PheromoneFade[1].colorList[0] = 0.4
+	*cells[a.X][a.Y].PheromoneFade[1].colorList[1] = 0.3
+	*cells[a.X][a.Y].PheromoneFade[1].colorList[2] = 0.9
+	cells[a.X][a.Y].PheromoneLevel = a.PheromoneStrength
+	a.PheromoneTrail = append(a.PheromoneTrail, Pair{a.X, a.Y})
+	if cells[a.X][a.Y].Food {
+		a.HasFood = true
+		a.Travel.X = 0
+		a.Travel.Y = 0
+	} else if cells[(a.X + Rows - 1) % Rows][a.Y].Food {
+		a.HasFood = true
+		a.Travel.X = -1
+		a.Travel.Y = 0
+	} else if cells[(a.X + Rows + 1) % Rows][a.Y].Food {
+		a.HasFood = true
+		a.Travel.X = 1
+		a.Travel.Y = 0
+	} else if cells[a.X][(a.Y + Cols - 1) % Cols].Food {
+		a.HasFood = true
+		a.Travel.X = 0
+		a.Travel.Y = -1
+	} else if cells[a.X][(a.Y + Cols + 1) % Cols].Food {
+		a.HasFood = true
+		a.Travel.X = 0
+		a.Travel.Y = 1
+	} else if cells[(a.X + Rows + 1) % Rows][(a.Y + Cols - 1) % Cols].Food {
+		a.HasFood = true
+		a.Travel.X = 1
+		a.Travel.Y = -1
+	} else if cells[(a.X + Rows + 1) % Rows][(a.Y + Cols + 1) % Cols].Food {
+		a.HasFood = true
+		a.Travel.X = 1
+		a.Travel.Y = 1
+	} else if cells[(a.X  + Rows - 1) % Rows][(a.Y + Cols + 1) % Cols].Food {
+		a.HasFood = true
+		a.Travel.X = -1
+		a.Travel.Y = 1
+	} else if cells[(a.X + Rows - 1) % Rows][(a.Y + Cols - 1) % Cols].Food {
+		a.HasFood = true
+		a.Travel.X = -1
+		a.Travel.Y = -1
 	}
 	if !a.HasFood {
 		cells[a.X][a.Y].PheromoneType = "Home"
@@ -111,65 +163,81 @@ func (a *Ant) Move(cells [][]*Cell, d time.Duration) {
 		a.PheromoneStrength = Alpha
 		a.PheromoneType = false
 	} else {
-		cells[a.X][a.Y].PheromoneType = "Food"
-		cells[a.X][a.Y].PheromoneDecay = Gamma / 3.0
+		cells[(a.X + a.Travel.X + Rows) % Rows][(a.Y + a.Travel.Y + Cols) % Cols].PheromoneType = "Food"
+		cells[(a.X + a.Travel.X + Rows) % Rows][(a.Y + a.Travel.Y + Cols) % Cols].PheromoneDecay = Gamma / 3.0
 		a.PheromoneStrength = Beta
 		a.PheromoneType = true
 	}
-	cells[a.X][a.Y].PheromoneLevel = a.PheromoneStrength
-	a.PheromoneTrail = append(a.PheromoneTrail, Pair{a.X, a.Y})
-	if cells[a.X][a.Y].Food {
-		a.HasFood = true
-	}
 	if !a.HasFood {
-		a.X = (a.X + dX + Rows) % Rows
-		a.Y = (a.Y + dY + Cols) % Cols
-	} else {
+		a.X = (a.X + a.Travel.X + Rows) % Rows
+		a.Y = (a.Y + a.Travel.Y + Cols) % Cols
+	} 
+	if !a.HomeTrail {
 		var p []Pair
 		var pL []float32
-		var highPair Pair
+		highPair := Pair{a.X, a.Y}
 		highest := float32(0.0)
-		if cells[a.X][a.Y-1].IsPheromone {
-			p = append(p, Pair{a.X, a.Y - 1})
-			pL = append(pL, cells[a.X][a.Y-1].PheromoneDecay)
-		}
-		if cells[a.X-1][a.Y].IsPheromone {
-			p = append(p, Pair{a.X - 1, a.Y})
-			pL = append(pL, cells[a.X-1][a.Y].PheromoneDecay)
-		}
-		if cells[a.X-1][a.Y-1].IsPheromone {
-			p = append(p, Pair{a.X - 1, a.Y - 1})
-			pL = append(pL, cells[a.X-1][a.Y-1].PheromoneDecay)
-		}
-		if cells[a.X][a.Y+1].IsPheromone {
-			p = append(p, Pair{a.X, a.Y + 1})
-			pL = append(pL, cells[a.X][a.Y+1].PheromoneDecay)
-		}
-		if cells[a.X+1][a.Y].IsPheromone {
-			p = append(p, Pair{a.X + 1, a.Y})
-			pL = append(pL, cells[a.X+1][a.Y].PheromoneDecay)
-		}
-		if cells[a.X+1][a.Y-1].IsPheromone {
-			p = append(p, Pair{a.X + 1, a.Y - 1})
-			pL = append(pL, cells[a.X+1][a.Y-1].PheromoneDecay)
-		}
-		if cells[a.X-1][a.Y+1].IsPheromone {
-			p = append(p, Pair{a.X - 1, a.Y + 1})
-			pL = append(pL, cells[a.X-1][a.Y+1].PheromoneDecay)
-		}
-		if cells[a.X+1][a.Y+1].IsPheromone {
-			p = append(p, Pair{a.X + 1, a.Y + 1})
-			pL = append(pL, cells[a.X+1][a.Y+1].PheromoneDecay)
-		}
-		for i, l := range pL {
-			if l > highest {
-				highest = l
-				highPair = p[i]
+		a.HomeTrail = true
+		for !cells[highPair.X][highPair.Y].Nest && cells[highPair.X][highPair.Y].PheromoneType == "Home" {
+			if cells[highPair.X][(highPair.Y + Cols - 1) % Cols].IsPheromone {
+				p = append(p, Pair{highPair.X, (highPair.Y + Cols - 1) % Cols})
+				pL = append(pL, cells[highPair.X][(highPair.Y + Cols - 1) % Cols].PheromoneDecay)
+				cells[highPair.X][(highPair.Y + Cols - 1) % Cols].PheromoneType = "Food"
 			}
+			if cells[(highPair.X + Rows - 1) % Rows][highPair.Y].IsPheromone {
+				p = append(p, Pair{(highPair.X + Rows - 1) % Rows, highPair.Y})
+				pL = append(pL, cells[(highPair.X + Rows - 1) % Rows][highPair.Y].PheromoneDecay)
+				cells[(highPair.X + Rows - 1) % Rows][highPair.Y].PheromoneType = "Food"
+			}
+			if cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols - 1) % Cols].IsPheromone {
+				p = append(p, Pair{(highPair.X + Rows - 1) % Rows, (highPair.Y + Cols - 1) % Cols})
+				pL = append(pL, cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols - 1) % Cols].PheromoneDecay)
+				cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols - 1) % Cols].PheromoneType = "Food"
+			}
+			if cells[highPair.X][(highPair.Y + Cols + 1) % Cols].IsPheromone {
+				p = append(p, Pair{highPair.X, (highPair.Y + Cols + 1) % Cols})
+				pL = append(pL, cells[highPair.X][(highPair.Y + Cols + 1) % Cols].PheromoneDecay)
+				cells[highPair.X][(highPair.Y + Cols - 1) % Cols].PheromoneType = "Food"
+			}
+			if cells[(highPair.X + Rows + 1) % Rows][highPair.Y].IsPheromone {
+				p = append(p, Pair{(highPair.X + Rows + 1) % Rows, highPair.Y})
+				pL = append(pL, cells[(highPair.X + Rows + 1) % Rows][highPair.Y].PheromoneDecay)
+				cells[(highPair.X + Rows + 1) % Rows][highPair.Y].PheromoneType = "Food"
+			}
+			if cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols - 1) % Cols].IsPheromone {
+				p = append(p, Pair{(highPair.X + Rows + 1) % Rows, (highPair.Y + Cols - 1) % Cols})
+				pL = append(pL, cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols - 1) % Cols].PheromoneDecay)
+				cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols - 1) % Cols].PheromoneType = "Food"
+			}
+			if cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols + 1) % Cols].IsPheromone {
+				p = append(p, Pair{(highPair.X + Rows - 1) % Rows, (highPair.Y + Cols + 1) % Cols})
+				pL = append(pL, cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols + 1) % Cols].PheromoneDecay)
+				cells[(highPair.X + Rows - 1) % Rows][(highPair.Y + Cols + 1) % Cols].PheromoneType = "Food"
+			}
+			if cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols + 1) % Cols].IsPheromone {
+				p = append(p, Pair{(highPair.X + Rows + 1) % Rows, (highPair.Y + Cols + 1) % Cols})
+				pL = append(pL, cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols + 1) % Cols].PheromoneDecay)
+				cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols + 1) % Cols].PheromoneType = "Food"
+			}
+			for i, l := range(pL) {
+				if l >= highest {
+					highest = l
+					highPair = p[i]
+					break
+				}
+			}
+			a.PheromoneTrail = append([]Pair{highPair}, a.PheromoneTrail...)	// found by searching how to push an element onto the front of a slice
+			clear(p)
+			clear(pL)
 		}
-		a.PheromoneTrail = append(a.PheromoneTrail, highPair)
+	} 
+	if a.HasFood {
+		pair := a.PheromoneTrail[0]
+		log.Println(pair)
+		a.PheromoneTrail = slices.Delete(a.PheromoneTrail, 0, 1)
+		a.X = pair.X
+		a.Y = pair.Y
 	}
-	// fmt.Println(a.X, a.Y)
 	cells[a.X][a.Y].IsAnt = true
 }
 
@@ -183,10 +251,10 @@ type Cell struct {
 	PheromoneDecay     float32
 	PheromoneLevel	   float32
 	PheromoneTime      time.Time
-	PheromoneFade	   Colours
+	PheromoneFade	   []Colours
 	FoodAmount         int
 	Occupied           uint32
-	access             chan bool
+	// access             chan bool
 	// X, Y int
 }
 
@@ -202,15 +270,15 @@ func (c *Cell) Draw() {
 
 // build a 3x3 square for the nest around the center nest spot
 func BuildNest(cells [][]*Cell, spot []int) {
-	cells[(spot[0])%Rows][(spot[1])%Cols].Nest = true
-	cells[(spot[0])%Rows][(spot[1]-1)%Cols].Nest = true
-	cells[(spot[0])%Rows][(spot[1]+1)%Cols].Nest = true
-	cells[(spot[0]-1)%Rows][(spot[1])%Cols].Nest = true
-	cells[(spot[0]+1)%Rows][(spot[1])%Cols].Nest = true
-	cells[(spot[0]-1)%Rows][(spot[1]-1)%Cols].Nest = true
-	cells[(spot[0]+1)%Rows][(spot[1]-1)%Cols].Nest = true
-	cells[(spot[0]-1)%Rows][(spot[1]+1)%Cols].Nest = true
-	cells[(spot[0]+1)%Rows][(spot[1]+1)%Cols].Nest = true
+	cells[spot[0]][spot[1]].Nest = true
+	cells[spot[0]][(spot[1] + Cols-1)%Cols].Nest = true
+	cells[spot[0]][(spot[1] + Cols+1)%Cols].Nest = true
+	cells[(spot[0] + Rows-1)%Rows][spot[1]].Nest = true
+	cells[(spot[0] + Rows+1)%Rows][spot[1]].Nest = true
+	cells[(spot[0] + Rows-1)%Rows][(spot[1] + Cols-1)%Cols].Nest = true
+	cells[(spot[0] + Rows+1)%Rows][(spot[1] + Cols-1)%Cols].Nest = true
+	cells[(spot[0] + Rows-1)%Rows][(spot[1] + Cols+1)%Cols].Nest = true
+	cells[(spot[0] + Rows+1)%Rows][(spot[1] + Cols+1)%Cols].Nest = true
 }
 
 // spawns 12 ants around the nest edges and stores the ants location inside of the ant itself
@@ -218,89 +286,113 @@ func BuildNest(cells [][]*Cell, spot []int) {
 // and parallelize the spawning of the ants in that way
 func SpawnAnts(cells [][]*Cell, spot []int) []*Ant {
 	ants := make([]*Ant, 12)
-	cells[spot[0]][spot[1]-2].IsAnt = true
+	cells[spot[0]][(spot[1] + Cols - 2) % Cols].IsAnt = true
 	ants[0] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
 		X:                 spot[0],
-		Y:                 spot[1] - 2,
+		Y:                 (spot[1] + Cols - 2) % Cols,
+		HomeTrail:		   false,
+		Direction:		   "South",
 	}
-	cells[spot[0]][spot[1]+2].IsAnt = true
+	cells[spot[0]][(spot[1] + Cols + 2) % Cols].IsAnt = true
 	ants[1] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
 		X:                 spot[0],
-		Y:                 spot[1] + 2,
+		Y:                 (spot[1] + Cols + 2) % Cols,
+		HomeTrail:		   false,
+		Direction:		   "North",
 	}
-	cells[spot[0]-2][spot[1]].IsAnt = true
+	cells[(spot[0] + Rows - 2) % Cols][spot[1]].IsAnt = true
 	ants[2] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
-		X:                 spot[0] - 2,
+		X:                 (spot[0] + Rows - 2) % Cols,
 		Y:                 spot[1],
+		HomeTrail:		   false,
+		Direction:		   "West",
 	}
-	cells[spot[0]+2][spot[1]].IsAnt = true
+	cells[(spot[0] + Rows + 2) % Cols][spot[1]].IsAnt = true
 	ants[3] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
-		X:                 spot[0] + 2,
+		X:                 (spot[0] + Rows + 2) % Rows,
 		Y:                 spot[1],
+		HomeTrail:		   false,
+		Direction:		   "East",
 	}
-	cells[spot[0]-1][spot[1]-2].IsAnt = true
+	cells[(spot[0] + Rows - 1) % Rows][(spot[1] + Cols - 2) % Cols].IsAnt = true
 	ants[4] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
-		X:                 spot[0] - 1,
-		Y:                 spot[1] - 2,
+		X:                 (spot[0] + Rows - 1) % Rows,
+		Y:                 (spot[1] + Cols - 2) % Cols,
+		HomeTrail:		   false,
+		Direction:		   "West",
 	}
-	cells[spot[0]+1][spot[1]-2].IsAnt = true
+	cells[(spot[0] + Rows + 1) % Rows][(spot[1] + Cols - 2) % Cols].IsAnt = true
 	ants[5] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
-		X:                 spot[0] + 1,
-		Y:                 spot[1] - 2,
+		X:                 (spot[0] + Rows + 1) % Rows,
+		Y:                 (spot[1] + Cols - 2) % Cols,
+		HomeTrail:		   false,
+		Direction:		   "East",
 	}
-	cells[spot[0]-2][spot[1]+1].IsAnt = true
+	cells[(spot[0] + Rows - 2) % Rows][(spot[1] + Cols + 1) % Cols].IsAnt = true
 	ants[6] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
-		X:                 spot[0] - 2,
-		Y:                 spot[1] + 1,
+		X:                 (spot[0] + Rows - 2) % Rows,
+		Y:                 (spot[1] + Cols + 1) % Cols,
+		HomeTrail:		   false,
+		Direction:		   "West",
 	}
-	cells[spot[0]+2][spot[1]+1].IsAnt = true
+	cells[(spot[0] + Rows + 2) % Rows][(spot[1] + Cols + 1) % Cols].IsAnt = true
 	ants[7] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
-		X:                 spot[0] + 2,
-		Y:                 spot[1] + 1,
+		X:                 (spot[0] + Rows + 2) % Rows,
+		Y:                 (spot[1] + Cols + 1) % Cols,
+		HomeTrail:		   false,
+		Direction:		   "East",
 	}
-	cells[spot[0]-2][spot[1]-2].IsAnt = true
+	cells[(spot[0] + Rows - 2) % Rows][(spot[1] + Cols - 2) % Cols].IsAnt = true
 	ants[8] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
-		X:                 spot[0] - 2,
-		Y:                 spot[1] - 2,
+		X:                 (spot[0] + Rows - 2) % Rows,
+		Y:                 (spot[1] + Cols - 2) % Cols,
+		HomeTrail:		   false,
+		Direction:		   "West",
 	}
-	cells[spot[0]+2][spot[1]-2].IsAnt = true
+	cells[(spot[0] + Rows + 2) % Rows][(spot[1] + Cols - 2) % Cols].IsAnt = true
 	ants[9] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
-		X:                 spot[0] + 2,
-		Y:                 spot[1] - 2,
+		X:                 (spot[0] + Rows + 2) % Rows,
+		Y:                 (spot[1] + Cols - 2) % Cols,
+		HomeTrail:		   false,
+		Direction:		   "East",
 	}
-	cells[spot[0]-2][spot[1]+2].IsAnt = true
+	cells[(spot[0] + Rows - 2) % Rows][(spot[1] + Cols + 2) % Cols].IsAnt = true
 	ants[10] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
-		X:                 spot[0] - 2,
-		Y:                 spot[1] + 2,
+		X:                 (spot[0] + Rows - 2) % Rows,
+		Y:                 (spot[1] + Cols + 2) % Cols,
+		HomeTrail:		   false,
+		Direction:		   "West",
 	}
-	cells[spot[0]+2][spot[1]+2].IsAnt = true
+	cells[(spot[0] + Rows + 2) % Rows][(spot[1] + Cols + 2) % Cols].IsAnt = true
 	ants[11] = &Ant{
 		PheromoneType:     false,
 		PheromoneStrength: Alpha,
-		X:                 spot[0] + 2,
-		Y:                 spot[1] + 2,
+		X:                 (spot[0] + Rows + 2) % Rows,
+		Y:                 (spot[1] + Cols + 2) % Cols,
+		HomeTrail:		   false,
+		Direction:		   "East",
 	}
 	return ants
 }
@@ -308,24 +400,24 @@ func SpawnAnts(cells [][]*Cell, spot []int) []*Ant {
 // spawns 3x3 cluster of food, with each spot having a random amount of food no greater than the randomly generated foodAmount
 func SpawnFood(cells [][]*Cell, spot []int) {
 	cells[spot[1]][spot[2]].FoodAmount = spot[0]
-	cells[spot[1]][spot[2]+1].FoodAmount = spot[0]
-	cells[spot[1]][spot[2]-1].FoodAmount = spot[0]
-	cells[spot[1]+1][spot[2]].FoodAmount = spot[0]
-	cells[spot[1]-1][spot[2]].FoodAmount = spot[0]
-	cells[spot[1]+1][spot[2]+1].FoodAmount = spot[0]
-	cells[spot[1]+1][spot[2]-1].FoodAmount = spot[0]
-	cells[spot[1]-1][spot[2]+1].FoodAmount = spot[0]
-	cells[spot[1]-1][spot[2]-1].FoodAmount = spot[0]
+	cells[spot[1]][(spot[2] + Cols + 1) % Cols].FoodAmount = spot[0]
+	cells[spot[1]][(spot[2] + Cols - 1) % Cols].FoodAmount = spot[0]
+	cells[(spot[1] + Rows + 1) % Rows][spot[2]].FoodAmount = spot[0]
+	cells[(spot[1] + Rows - 1) % Rows][spot[2]].FoodAmount = spot[0]
+	cells[(spot[1] + Rows + 1) % Rows][(spot[2] + Cols + 1) % Cols].FoodAmount = spot[0]
+	cells[(spot[1] + Rows + 1) % Rows][(spot[2] + Cols - 1) % Cols].FoodAmount = spot[0]
+	cells[(spot[1] + Rows - 1) % Rows][(spot[2] + Cols + 1) % Cols].FoodAmount = spot[0]
+	cells[(spot[1] + Rows - 1) % Rows][(spot[2] + Cols - 1) % Cols].FoodAmount = spot[0]
 
 	cells[spot[1]][spot[2]].Food = true
-	cells[spot[1]][spot[2]+1].Food = true
-	cells[spot[1]][spot[2]-1].Food = true
-	cells[spot[1]+1][spot[2]].Food = true
-	cells[spot[1]-1][spot[2]].Food = true
-	cells[spot[1]+1][spot[2]+1].Food = true
-	cells[spot[1]+1][spot[2]-1].Food = true
-	cells[spot[1]-1][spot[2]+1].Food = true
-	cells[spot[1]-1][spot[2]-1].Food = true
+	cells[spot[1]][(spot[2] + Cols + 1) % Cols].Food = true
+	cells[spot[1]][(spot[2] + Cols - 1) % Cols].Food = true
+	cells[(spot[1] + Rows + 1) % Rows][spot[2]].Food = true
+	cells[(spot[1] + Rows - 1) % Rows][spot[2]].Food = true
+	cells[(spot[1] + Rows + 1) % Rows][(spot[2] + Cols + 1) % Cols].Food = true
+	cells[(spot[1] + Rows + 1) % Rows][(spot[2] + Cols - 1) % Cols].Food = true
+	cells[(spot[1] + Rows - 1) % Rows][(spot[2] + Cols + 1) % Cols].Food = true
+	cells[(spot[1] + Rows - 1) % Rows][(spot[2] + Cols - 1) % Cols].Food = true
 }
 
 func MakeColony() ([][]*Cell, []*Ant) {
@@ -381,7 +473,7 @@ func newCell(x, y int) *Cell {
 		IsPheromone:    false,
 		PheromoneDecay: Gamma,
 		PheromoneLevel: Alpha,
-		PheromoneFade: 	Colours{},
+		PheromoneFade: 	[]Colours{},
 		FoodAmount:     0,
 		Occupied:       0,
 	}
@@ -489,10 +581,14 @@ func draw(cells [][]*Cell, window *glfw.Window, program uint32, d time.Duration)
 			if c.Food {
 				gl.Uniform4f(vertexColorLocation, FoodColours[0], FoodColours[1], FoodColours[2], 1.0) // green for the food
 			}
-			if c.IsPheromone && !(c.Nest || c.Food || c.IsAnt) {
-				decayPheromone(d, c)
+			if c.IsPheromone && c.PheromoneType == "Home" {
+				decayPheromone(d, c, 0)
 				// log.Println(*PheromoneColours[0])
-				gl.Uniform4f(vertexColorLocation, *c.PheromoneFade.colorList[0], *c.PheromoneFade.colorList[1], *c.PheromoneFade.colorList[2], 1.0)
+				gl.Uniform4f(vertexColorLocation, *c.PheromoneFade[0].colorList[0], *c.PheromoneFade[0].colorList[1], *c.PheromoneFade[0].colorList[2], 1.0)
+			} else if c.IsPheromone && c.PheromoneType == "Food" {
+				decayPheromone(d, c, 1)
+				// log.Println(*PheromoneColours[0])
+				gl.Uniform4f(vertexColorLocation, *c.PheromoneFade[1].colorList[0], *c.PheromoneFade[1].colorList[1], *c.PheromoneFade[1].colorList[2], 1.0)
 			}
 			if c.IsAnt {
 				gl.Uniform4f(vertexColorLocation, AntColours[0], AntColours[1], AntColours[2], 1.0) // red for the ants
@@ -505,11 +601,11 @@ func draw(cells [][]*Cell, window *glfw.Window, program uint32, d time.Duration)
 	window.SwapBuffers()
 }
 
-func decayPheromone(d time.Duration, c *Cell) {
+func decayPheromone(d time.Duration, c *Cell, cdex int) {
 	// log.Println(time.Since(c.PheromoneTime))
 	if time.Since(c.PheromoneTime) > d {
-		for i := range(c.PheromoneFade.colorList) {
-			*c.PheromoneFade.colorList[i] -= c.PheromoneDecay
+		for i := range(c.PheromoneFade[cdex].colorList) {
+			*c.PheromoneFade[cdex].colorList[i] -= c.PheromoneDecay
 		}
 	}
 }
