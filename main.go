@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"strings"
 
-	// "sync"
+	"sync"
 	"time"
 
 	"github.com/go-gl/gl/v4.6-core/gl"
@@ -83,7 +83,7 @@ type Ant struct { // I found some things online for how to create an Ant, but ul
 
 // I got a simple movement function from copilot and added the logic to track the pheromone trail and update whether the cell
 // contains an ant
-func (a *Ant) Move(cells [][]*Cell, d time.Duration) {
+func (a *Ant) Move(cells [][]*Cell, d time.Duration, wg *sync.WaitGroup) {
 	// Move ant in a random direction
 	if (d % time.Duration(30) == 0) {
 		if a.Direction == "West" {
@@ -171,7 +171,7 @@ func (a *Ant) Move(cells [][]*Cell, d time.Duration) {
 		p := make([]Pair, 0)
 		pL := make([]float32, 0)
 		highPair := Pair{a.X, a.Y}
-		lowest := time.Since(cells[a.X][a.Y].PheromoneTime)
+		highest := float32(0.0)
 		if !cells[highPair.X][highPair.Y].Nest && a.PheromoneType && cells[highPair.X][highPair.Y].PheromoneType == "Home" {
 			log.Println("Inside of if.")
 			cells[highPair.X][highPair.Y].PheromoneType = "Food"
@@ -215,23 +215,24 @@ func (a *Ant) Move(cells [][]*Cell, d time.Duration) {
 				pL = append(pL, cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols + 1) % Cols].PheromoneLevel)
 				// cells[(highPair.X + Rows + 1) % Rows][(highPair.Y + Cols + 1) % Cols].PheromoneType = "Food"
 			}
-			for i, l := range(p) {
-				least := time.Since(cells[l.X][l.Y].PheromoneTime)
-				if least > lowest {
+			for i, l := range(pL) {
+				if l > highest && cells[p[i].X][p[i].Y].PheromoneType == "Home" {
 					log.Println(highPair)
-					lowest = least
+					highest = l
 					highPair = p[i]
 				}
 			}	// found by searching how to push an element onto the front of a slice
 			clear(p)
 			clear(pL)
-			cells[a.X][a.Y].PheromoneTime = time.Now()
+			cells[highPair.X][highPair.Y].PheromoneLevel = a.PheromoneStrength
+			cells[highPair.X][highPair.Y].PheromoneTime = time.Now()
 		}
 		log.Println(a.X, a.Y, highPair)
 		a.X = highPair.X
 		a.Y = highPair.Y
 		cells[a.X][a.Y].IsAnt = true
-	} 
+	}
+	wg.Done()
 }
 
 // a combination of the assignment instructions and the OpenGL code from Conway's to determine if the cell should be drawable or not
@@ -507,6 +508,7 @@ func main() {
 
 	cells, ants := MakeColony() // create the grid with the colony and food cluster in it as well as a list of ants
 
+	wg := new(sync.WaitGroup)
 	t := time.Duration(8) * time.Millisecond
 	decay := time.Now()
 	for !window.ShouldClose() {
@@ -514,8 +516,11 @@ func main() {
 		decayTime := time.Since(decay)
 
 		for _, a := range ants { // traverse through list of ants
-			go a.Move(cells, decayTime) // move the ants in a random direction and update their position in the cells
+			wg.Add(1)
+			go a.Move(cells, decayTime, wg) // move the ants in a random direction and update their position in the cells
 		}
+
+		wg.Wait()
 
 		draw(cells, window, program, t) // draw the drawable cells
 
