@@ -86,10 +86,13 @@ type Graph struct {
 	Edges    map[Pair][]Edge
 }
 
+// this function adds a vertex to the vertex array of a graph
 func (g *Graph) AddVertex(vtex Pair) {
 	g.Vertices = append(g.Vertices, Vertex{V: vtex})
 }
 
+// this function appends a new Edge (a vertex and its weight) to the the Edge list that's mapped to the "from" vertex
+// shows what vertices are connected to the "from" vertex and those edge weights, in case of multiple edges from a single vertex
 func (g *Graph) AddEdge(to, from Pair, w *float32) {
 	g.Edges[from] = append(g.Edges[from], Edge{Destination: to, Weight: w})
 }
@@ -111,9 +114,6 @@ type Cell struct {
 	PheromoneHomeTime  time.Time
 	PheromoneFoodTime  time.Time
 	PheromoneFade      []Colours
-	FoodAtHome         *int
-	// access             chan bool
-	// X, Y int
 }
 
 // checks the cell to determine if it contains a nest, food, pheromones, or ant
@@ -475,7 +475,7 @@ func MakeColony(count *int) ([][]*Cell, []*Ant) {
 	grid := make([][]*Cell, Cols) // make the cells
 	for i := range Cols {
 		for j := range Rows {
-			c := newCell(i, j, count)
+			c := newCell(i, j)
 			grid[i] = append(grid[i], c) // populate the cells with the proper initialization values
 		}
 	}
@@ -490,7 +490,7 @@ func MakeColony(count *int) ([][]*Cell, []*Ant) {
 }
 
 // initializes a new cell with the proper values. Function taken from Conway's and repurposed for use with the ants
-func newCell(x, y int, count *int) *Cell {
+func newCell(x, y int) *Cell {
 	points := make([]float32, len(Square))
 	copy(points, Square)
 
@@ -523,9 +523,8 @@ func newCell(x, y int, count *int) *Cell {
 		IsFoodPheromone:    false,
 		PheromoneDecay:     Gamma,
 		PheromoneHomeLevel: Alpha,
-		PheromoneFoodLevel: Beta,
+		PheromoneFoodLevel: 0,
 		PheromoneFade:      nil,
-		FoodAtHome:         count,
 	}
 }
 
